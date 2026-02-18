@@ -1,0 +1,177 @@
+.historyPage {
+  padding: 18px 18px 26px;
+  background: #e6e6e6; /* ใกล้กับสีพื้นในภาพ */
+  min-height: 100vh;
+}
+
+.historyHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.historyTitle {
+  font-size: 34px;
+  font-weight: 900;
+  color: #111;
+  line-height: 1.1;
+}
+
+.historySub {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #555;
+}
+
+.exportBtn {
+  border: 1px solid #d0d0d0;
+  background: #f2f2f2;
+  color: #111;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.exportBtn:hover {
+  background: #ededed;
+}
+
+.filtersBar {
+  display: grid;
+  grid-template-columns: 1fr 260px 110px 110px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.searchInput {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #d6d6d6;
+  padding: 0 14px;
+  font-size: 16px;
+  outline: none;
+  background: #f0f0f0;
+}
+
+.select {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #d6d6d6;
+  padding: 0 12px;
+  font-size: 16px;
+  outline: none;
+  background: #f0f0f0;
+}
+
+.applyBtn,
+.resetBtn {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #d6d6d6;
+  background: #f0f0f0;
+  font-weight: 900;
+  cursor: pointer;
+}
+.applyBtn:hover,
+.resetBtn:hover {
+  background: #e9e9e9;
+}
+
+.timelineCard {
+  background: #e6e6e6;
+  border-radius: 14px;
+  padding: 12px 12px 14px;
+}
+
+.timelineCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 6px 8px;
+}
+
+.timelineCardTitle {
+  font-size: 20px;
+  font-weight: 900;
+  color: #111;
+}
+
+.timelineCount {
+  font-size: 14px;
+  color: #444;
+}
+
+.orgMini {
+  padding: 8px 6px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.orgMiniName {
+  font-weight: 900;
+  color: #111;
+}
+
+.orgMiniDomain {
+  font-size: 13px;
+  color: #555;
+}
+
+.chartWrap {
+  background: #ededed;
+  border: 1px solid #d7d7d7;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.tlTooltip {
+  background: #ffffff;
+  border: 1px solid #e1e1e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  max-width: 320px;
+}
+
+.tlTooltipTitle {
+  font-weight: 900;
+  margin-bottom: 6px;
+  color: #111;
+}
+
+.tlTooltipRow {
+  font-size: 13px;
+  display: flex;
+  gap: 6px;
+  margin: 2px 0;
+  color: #222;
+}
+
+.tlTooltipRow .k {
+  width: 68px;
+  color: #666;
+}
+.tlTooltipRow .v {
+  color: #111;
+  font-weight: 600;
+}
+
+.hintRow {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #444;
+  padding: 0 6px;
+}
+
+@media (max-width: 980px) {
+  .filtersBar {
+    grid-template-columns: 1fr;
+  }
+  .chartWrap {
+    padding: 10px;
+  }
+}

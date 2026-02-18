@@ -1,0 +1,20 @@
+:root {
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  background: #070a2b;
+  color: #ffffff;
+}
+
+a { color: inherit; }
+button, input, select, textarea { font: inherit; }
