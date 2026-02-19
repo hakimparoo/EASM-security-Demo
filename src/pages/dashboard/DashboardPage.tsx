@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import "./Dashboard.css";
 
 import { getDashboardSummary, type DashboardSummary } from "../../api/easmApi";
@@ -294,10 +295,10 @@ const fallback = useMemo((): DashboardSummary => {
             View Log
           </button>
         </section>
-      </div>
+      {/* </div> */}
 
       {/* row 2 */}
-      <div className="grid3b">
+      {/* <div className="grid3b"> */}
         <section className="card big">
           <div className="cardTitle">Timeline</div>
           <LineChart points={d.timeline} />

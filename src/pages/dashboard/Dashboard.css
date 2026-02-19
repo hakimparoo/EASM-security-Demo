@@ -6,6 +6,7 @@
 /* row บน 3 กล่อง */
 .grid3 {
   display: grid;
+  margin: 16px;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 18px;
 }
@@ -13,13 +14,14 @@
 /* row ล่าง: 3 กล่อง (timeline / vulnerability / contact) */
 .grid3b {
   display: grid;
+  margin: 16px;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 18px;
 }
 
 /* ✅ การ์ดแบบต้นแบบ: ขาว / ขอบบาง / เงาอ่อน */
 .card {
-  background: #dedede;
+  background: #ffffff;
   border-radius: 8px;
   padding: 22px;
   border: 1px solid #cfcfcf;

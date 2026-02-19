@@ -1,768 +1,416 @@
-import type { Asset, Issue, ScanTask, HistoryItem, RiskBreakdown } from "../types/easm";
+// src/data/easmMock.enterprise.ts
+import type {
+  Asset,
+  Issue,
+  ScanTask,
+  RiskBreakdown,
+  HistoryItem,
+  Severity,
+  ScanStatus,
+} from "../types/easm";
 
-/* =========================================================
-  ASSETS (ยาว + มี tags/tech/lastSeenAt ครบ)
-========================================================= */
+/** ---------------------------
+ *  Utilities (seeded random)
+ *  --------------------------*/
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const rnd = mulberry32(20260219);
+
+function pick<T>(arr: T[]) {
+  return arr[Math.floor(rnd() * arr.length)];
+}
+
+function int(min: number, max: number) {
+  return Math.floor(rnd() * (max - min + 1)) + min;
+}
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
+
+function isoAt(d: Date) {
+  return d.toISOString();
+}
+
+/** สร้างวันที่ย้อนหลังแบบ “เดือนเต็ม” */
+function monthStartMonthsAgo(monthsAgo: number) {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1, 9, 12, 0);
+  return d;
+}
+
+function addDays(base: Date, days: number) {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function addMinutes(base: Date, mins: number) {
+  const d = new Date(base);
+  d.setMinutes(d.getMinutes() + mins);
+  return d;
+}
+
+/** ---------------------------
+ *  Assets (enterprise-ish)
+ *  --------------------------*/
 export const initialAssets: Asset[] = [
   {
-    id: "a_domain_001",
+    id: "a-001",
     kind: "domain",
     name: "kmitl.ac.th",
     tags: ["primary", "public"],
-    tech: ["Cloudflare", "Nginx"],
-    lastSeenAt: "2026-02-18T03:12:00.000Z",
+    tech: ["nginx", "cloudflare", "tls"],
+    lastSeenAt: isoAt(addDays(new Date(), -1)),
   },
   {
-    id: "a_sub_002",
+    id: "a-002",
     kind: "subdomain",
     name: "portal.kmitl.ac.th",
-    tags: ["login", "student"],
-    tech: ["React", "Node.js"],
-    lastSeenAt: "2026-02-18T03:08:00.000Z",
+    tags: ["sso", "public"],
+    tech: ["react", "node", "oauth"],
+    lastSeenAt: isoAt(addDays(new Date(), -2)),
   },
   {
-    id: "a_sub_003",
+    id: "a-003",
     kind: "subdomain",
     name: "mail.kmitl.ac.th",
-    tags: ["email", "mx"],
-    tech: ["Postfix", "Dovecot"],
-    lastSeenAt: "2026-02-18T03:06:00.000Z",
+    tags: ["mx", "public"],
+    tech: ["postfix", "dmarc", "spf"],
+    lastSeenAt: isoAt(addDays(new Date(), -3)),
   },
   {
-    id: "a_sub_004",
+    id: "a-004",
     kind: "subdomain",
-    name: "vpn.kmitl.ac.th",
-    tags: ["remote-access"],
-    tech: ["OpenVPN"],
-    lastSeenAt: "2026-02-18T03:05:00.000Z",
+    name: "auth.kmitl.ac.th",
+    tags: ["iam", "critical"],
+    tech: ["keycloak", "oauth", "saml"],
+    lastSeenAt: isoAt(addDays(new Date(), -1)),
   },
   {
-    id: "a_ip_005",
-    kind: "ip",
-    name: "203.150.10.20",
-    tags: ["edge", "prod"],
-    tech: ["Linux", "SSH"],
-    lastSeenAt: "2026-02-18T03:01:00.000Z",
-  },
-  {
-    id: "a_sub_006",
-    kind: "subdomain",
-    name: "student.kmitl.ac.th",
-    tags: ["student", "public"],
-    tech: ["PHP", "Apache"],
-    lastSeenAt: "2026-02-17T16:35:00.000Z",
-  },
-  {
-    id: "a_sub_007",
-    kind: "subdomain",
-    name: "research.kmitl.ac.th",
-    tags: ["research"],
-    tech: ["WordPress", "MySQL"],
-    lastSeenAt: "2026-02-17T14:20:00.000Z",
-  },
-  {
-    id: "a_sub_008",
+    id: "a-005",
     kind: "subdomain",
     name: "api.kmitl.ac.th",
     tags: ["api", "public"],
-    tech: ["Node.js", "Express"],
-    lastSeenAt: "2026-02-18T02:40:00.000Z",
+    tech: ["nginx", "rest", "jwt"],
+    lastSeenAt: isoAt(addDays(new Date(), -4)),
   },
   {
-    id: "a_sub_009",
-    kind: "subdomain",
-    name: "auth.kmitl.ac.th",
-    tags: ["sso", "auth"],
-    tech: ["Keycloak"],
-    lastSeenAt: "2026-02-18T02:18:00.000Z",
-  },
-  {
-    id: "a_sub_010",
-    kind: "subdomain",
-    name: "lms.kmitl.ac.th",
-    tags: ["education", "learning"],
-    tech: ["Moodle", "PHP"],
-    lastSeenAt: "2026-02-18T01:40:00.000Z",
-  },
-  {
-    id: "a_service_011",
-    kind: "service",
-    name: "kmitl.ac.th:443 (HTTPS)",
-    tags: ["https"],
-    tech: ["TLS", "HTTP/2"],
-    lastSeenAt: "2026-02-18T03:11:00.000Z",
-  },
-  {
-    id: "a_service_012",
-    kind: "service",
-    name: "203.150.10.20:22 (SSH)",
-    tags: ["ssh"],
-    tech: ["OpenSSH"],
-    lastSeenAt: "2026-02-18T03:00:00.000Z",
-  },
-  {
-    id: "a_service_013",
-    kind: "service",
-    name: "203.150.10.20:80 (HTTP)",
-    tags: ["http"],
-    tech: ["Apache"],
-    lastSeenAt: "2026-02-18T02:58:00.000Z",
-  },
-  {
-    id: "a_ip_014",
-    kind: "ip",
-    name: "203.150.10.55",
-    tags: ["dmz"],
-    tech: ["Linux", "Nginx"],
-    lastSeenAt: "2026-02-17T11:18:00.000Z",
-  },
-  {
-    id: "a_sub_015",
-    kind: "subdomain",
-    name: "ithelp.kmitl.ac.th",
-    tags: ["support"],
-    tech: ["Jira Service Management"],
-    lastSeenAt: "2026-02-16T08:05:00.000Z",
-  },
-  {
-    id: "a_sub_016",
-    kind: "subdomain",
-    name: "career.kmitl.ac.th",
-    tags: ["public"],
-    tech: ["Next.js"],
-    lastSeenAt: "2026-02-15T10:00:00.000Z",
-  },
-  {
-    id: "a_sub_017",
-    kind: "subdomain",
-    name: "alumni.kmitl.ac.th",
-    tags: ["public"],
-    tech: ["Drupal"],
-    lastSeenAt: "2026-02-14T03:35:00.000Z",
-  },
-  {
-    id: "a_sub_018",
-    kind: "subdomain",
-    name: "payments.kmitl.ac.th",
-    tags: ["sensitive", "payment"],
-    tech: ["Java", "Spring"],
-    lastSeenAt: "2026-02-18T00:40:00.000Z",
-  },
-  {
-    id: "a_sub_019",
+    id: "a-006",
     kind: "subdomain",
     name: "cdn.kmitl.ac.th",
-    tags: ["cdn"],
-    tech: ["Cloudflare"],
-    lastSeenAt: "2026-02-18T03:09:00.000Z",
+    tags: ["cdn", "public"],
+    tech: ["cloudflare", "cache"],
+    lastSeenAt: isoAt(addDays(new Date(), -2)),
   },
   {
-    id: "a_sub_020",
+    id: "a-007",
     kind: "subdomain",
-    name: "status.kmitl.ac.th",
-    tags: ["status"],
-    tech: ["Uptime Kuma"],
-    lastSeenAt: "2026-02-18T03:03:00.000Z",
+    name: "student.kmitl.ac.th",
+    tags: ["student", "public"],
+    tech: ["apache", "php", "mysql"],
+    lastSeenAt: isoAt(addDays(new Date(), -5)),
+  },
+  {
+    id: "a-008",
+    kind: "subdomain",
+    name: "research.kmitl.ac.th",
+    tags: ["research", "public"],
+    tech: ["wordpress", "php"],
+    lastSeenAt: isoAt(addDays(new Date(), -6)),
+  },
+  {
+    id: "a-009",
+    kind: "ip",
+    name: "203.150.10.20",
+    tags: ["edge", "public"],
+    tech: ["linux", "ssh"],
+    lastSeenAt: isoAt(addDays(new Date(), -2)),
+  },
+  {
+    id: "a-010",
+    kind: "ip",
+    name: "203.150.10.55",
+    tags: ["edge", "public"],
+    tech: ["linux", "nginx"],
+    lastSeenAt: isoAt(addDays(new Date(), -1)),
+  },
+  {
+    id: "a-011",
+    kind: "service",
+    name: "kmitl.ac.th:443",
+    tags: ["tls", "https"],
+    tech: ["tls1.2", "hsts"],
+    lastSeenAt: isoAt(addDays(new Date(), -1)),
+  },
+  {
+    id: "a-012",
+    kind: "service",
+    name: "mail.kmitl.ac.th:25",
+    tags: ["smtp"],
+    tech: ["smtp", "starttls"],
+    lastSeenAt: isoAt(addDays(new Date(), -2)),
   },
 ];
 
-/* =========================================================
-  SCANS (มี queued/running/done/failed + progress + finishedAt)
-========================================================= */
-export const initialScans: ScanTask[] = [
-  {
-    id: "s_001",
-    target: "a_domain_001",
-    modules: ["discovery", "dns", "ssl"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-07-22T02:00:00.000Z",
-    finishedAt: "2025-07-22T02:12:00.000Z",
-  },
-  {
-    id: "s_002",
-    target: "a_sub_002",
-    modules: ["ssl", "web", "headers"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-08-20T01:10:00.000Z",
-    finishedAt: "2025-08-20T01:28:00.000Z",
-  },
-  {
-    id: "s_003",
-    target: "a_sub_003",
-    modules: ["dns", "mx", "reputation"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-10-05T03:00:00.000Z",
-    finishedAt: "2025-10-05T03:14:00.000Z",
-  },
-  {
-    id: "s_004",
-    target: "a_ip_005",
-    modules: ["port-scan", "service-detect", "vuln-check"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-11-11T04:00:00.000Z",
-    finishedAt: "2025-11-11T04:22:00.000Z",
-  },
-  {
-    id: "s_005",
-    target: "a_sub_010",
-    modules: ["web", "headers", "cms-check"],
-    status: "failed",
-    progress: 55,
-    createdAt: "2026-01-10T02:00:00.000Z",
-    finishedAt: "2026-01-10T02:08:00.000Z",
-  },
-  {
-    id: "s_006",
-    target: "a_sub_008",
-    modules: ["api", "swagger", "auth-check"],
-    status: "running",
-    progress: 35,
-    createdAt: "2026-02-18T02:30:00.000Z",
-  },
-  {
-    id: "s_007",
-    target: "a_sub_018",
-    modules: ["ssl", "headers", "appsec"],
-    status: "queued",
-    progress: 0,
-    createdAt: "2026-02-18T03:15:00.000Z",
-  },
-  {
-    id: "s_008",
-    target: "a_sub_007",
-    modules: ["cms-check", "plugins", "exposure"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-12-02T03:10:00.000Z",
-    finishedAt: "2025-12-02T03:26:00.000Z",
-  },
-  {
-    id: "s_009",
-    target: "a_sub_009",
-    modules: ["auth", "oauth", "headers"],
-    status: "done",
-    progress: 100,
-    createdAt: "2025-12-18T05:00:00.000Z",
-    finishedAt: "2025-12-18T05:19:00.000Z",
-  },
-  {
-    id: "s_010",
-    target: "a_ip_014",
-    modules: ["port-scan", "service-detect"],
-    status: "done",
-    progress: 100,
-    createdAt: "2026-02-01T01:00:00.000Z",
-    finishedAt: "2026-02-01T01:13:00.000Z",
-  },
-  {
-    id: "s_011",
-    target: "a_sub_019",
-    modules: ["dns", "ssl"],
-    status: "done",
-    progress: 100,
-    createdAt: "2026-02-10T09:00:00.000Z",
-    finishedAt: "2026-02-10T09:08:00.000Z",
-  },
-  {
-    id: "s_012",
-    target: "a_sub_020",
-    modules: ["web", "headers"],
-    status: "done",
-    progress: 100,
-    createdAt: "2026-02-12T02:00:00.000Z",
-    finishedAt: "2026-02-12T02:06:00.000Z",
-  },
-];
+/** map name -> id (ช่วยตอนสร้าง issues) */
+const assetIds = initialAssets.map((a) => a.id);
 
-/* =========================================================
-  ISSUES (ยาว: 40 รายการ ใช้จริงกับ Top Issues / Pie / Table)
-========================================================= */
-export const initialIssues: Issue[] = [
-  {
-    id: "i_001",
-    title: "Session Cookie Missing 'HttpOnly' Attribute",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_002",
-    evidence: "Set-Cookie header does not include HttpOnly; risk of client-side script access.",
-    recommendation: "Enable HttpOnly on session cookies and validate all cookie flags across environments.",
-    status: "open",
-    createdAt: "2026-02-16T03:10:00.000Z",
-  },
-  {
-    id: "i_002",
-    title: "Session Cookie Missing 'Secure' Attribute",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_002",
-    evidence: "Cookie transmitted over HTTP when redirected; Secure flag absent.",
-    recommendation: "Set Secure flag and enforce HTTPS-only cookies; review reverse proxy headers.",
-    status: "open",
-    createdAt: "2026-02-16T03:12:00.000Z",
-  },
-  {
-    id: "i_003",
-    title: "TLS 1.0 Enabled",
-    severity: "medium",
-    category: "DNS/SSL",
-    assetId: "a_domain_001",
-    evidence: "Server accepts TLS 1.0 handshake; legacy protocol detected.",
-    recommendation: "Disable TLS 1.0/1.1; keep TLS 1.2/1.3 only; retest with SSL configuration scanner.",
-    status: "open",
-    createdAt: "2026-02-10T01:20:00.000Z",
-  },
-  {
-    id: "i_004",
-    title: "Weak Cipher Suites Supported",
-    severity: "high",
-    category: "DNS/SSL",
-    assetId: "a_domain_001",
-    evidence: "CBC/3DES suites appear in supported list; downgrade risk.",
-    recommendation: "Remove weak suites; prefer AEAD (GCM/CHACHA20); enable modern TLS config template.",
-    status: "open",
-    createdAt: "2026-02-10T01:22:00.000Z",
-  },
-  {
-    id: "i_005",
-    title: "Missing HSTS Header",
-    severity: "medium",
-    category: "Application Security",
-    assetId: "a_service_011",
-    evidence: "Strict-Transport-Security header not present on HTTPS responses.",
-    recommendation: "Add HSTS with appropriate max-age; includeSubDomains if safe; preload when ready.",
-    status: "open",
-    createdAt: "2026-02-11T09:00:00.000Z",
-  },
-  {
-    id: "i_006",
-    title: "Missing Content-Security-Policy",
-    severity: "medium",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "CSP not detected; risk of XSS impact amplification.",
-    recommendation: "Implement CSP (start with report-only); reduce inline scripts; whitelist required sources only.",
-    status: "open",
-    createdAt: "2026-02-11T09:10:00.000Z",
-  },
-  {
-    id: "i_007",
-    title: "Open SSH Port 22 Exposed to Internet",
-    severity: "low",
-    category: "Network Security",
-    assetId: "a_service_012",
-    evidence: "Publicly reachable SSH service detected on 203.150.10.20:22.",
-    recommendation: "Restrict via IP allowlist/VPN; enforce key-based auth; enable MFA; disable password login.",
-    status: "open",
-    createdAt: "2026-02-12T02:00:00.000Z",
-  },
-  {
-    id: "i_008",
-    title: "HTTP Service Exposed (Port 80)",
-    severity: "low",
-    category: "Network Security",
-    assetId: "a_service_013",
-    evidence: "HTTP accessible; may allow downgrade to insecure transport.",
-    recommendation: "Redirect HTTP to HTTPS; ensure HSTS and correct proxy headers.",
-    status: "resolved",
-    createdAt: "2026-02-12T02:05:00.000Z",
-  },
-  {
-    id: "i_009",
-    title: "Directory Listing Enabled",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "Index of /uploads/ returns file listing and metadata.",
-    recommendation: "Disable autoindex; restrict access; move uploads to non-public storage or signed URLs.",
-    status: "open",
-    createdAt: "2026-02-13T07:00:00.000Z",
-  },
-  {
-    id: "i_010",
-    title: "Outdated Apache Version Detected",
-    severity: "medium",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "Apache version banner suggests an outdated minor release.",
-    recommendation: "Patch to latest stable; hide server tokens; enable routine patch cadence tracking.",
-    status: "open",
-    createdAt: "2026-02-13T07:05:00.000Z",
-  },
+/** ---------------------------
+ *  RiskBreakdown + Cubit Score
+ *  --------------------------*/
+function computeCubit(r: Omit<RiskBreakdown, "cubitScore">): number {
+  // weight แบบ “ดูสมจริง” (คุณปรับได้)
+  const w = {
+    applicationSecurity: 0.18,
+    networkSecurity: 0.16,
+    patchingCadence: 0.12,
+    dnsHealth: 0.1,
+    endpointSecurity: 0.1,
+    ipReputation: 0.08,
+    hackerChatter: 0.08,
+    informationLeak: 0.1,
+    socialEngineering: 0.08,
+  };
 
-  // --- เพิ่มความยาว: issues realistic เพิ่มอีกจำนวนมาก ---
-  {
-    id: "i_011",
-    title: "Missing SPF Record",
-    severity: "low",
-    category: "DNS/SSL",
-    assetId: "a_domain_001",
-    evidence: "No SPF record found for domain; email spoofing risk increases.",
-    recommendation: "Publish SPF record; align with DKIM and DMARC policy for enforcement.",
-    status: "open",
-    createdAt: "2026-02-14T02:00:00.000Z",
-  },
-  {
-    id: "i_012",
-    title: "DMARC Policy Not Enforced",
-    severity: "medium",
-    category: "DNS/SSL",
-    assetId: "a_domain_001",
-    evidence: "DMARC found but set to p=none; monitoring only.",
-    recommendation: "Move to quarantine/reject after validation; ensure alignment with mail providers.",
-    status: "open",
-    createdAt: "2026-02-14T02:05:00.000Z",
-  },
-  {
-    id: "i_013",
-    title: "Exposed /server-status Endpoint",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_ip_005",
-    evidence: "/server-status reveals performance and active requests.",
-    recommendation: "Disable server-status publicly; restrict by IP; require auth; remove module if unused.",
-    status: "open",
-    createdAt: "2026-02-14T09:00:00.000Z",
-  },
-  {
-    id: "i_014",
-    title: "Potential Subdomain Takeover",
-    severity: "critical",
-    category: "Digital Footprint",
-    assetId: "a_sub_016",
-    evidence: "CNAME points to unclaimed service; HTTP responds with 'No such app'.",
-    recommendation: "Remove dangling DNS record or claim the resource; monitor with continuous DNS checks.",
-    status: "open",
-    createdAt: "2026-02-15T01:00:00.000Z",
-  },
-  {
-    id: "i_015",
-    title: "Exposed Git Repository (.git) Accessible",
-    severity: "critical",
-    category: "Information Leak",
-    assetId: "a_sub_008",
-    evidence: ".git/HEAD accessible; repository metadata exposure possible.",
-    recommendation: "Block access to .git; rotate secrets; audit commit history; enable WAF rules.",
-    status: "open",
-    createdAt: "2026-02-15T01:12:00.000Z",
-  },
-  {
-    id: "i_016",
-    title: "Missing Rate Limiting on API",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_008",
-    evidence: "High request rate accepted without throttling; brute force and abuse risk.",
-    recommendation: "Implement rate limit and bot protection; add account lockout for auth endpoints.",
-    status: "open",
-    createdAt: "2026-02-15T01:20:00.000Z",
-  },
-  {
-    id: "i_017",
-    title: "Verbose Server Banner Discloses Version",
-    severity: "low",
-    category: "Information Leak",
-    assetId: "a_domain_001",
-    evidence: "Server header reveals product/version details.",
-    recommendation: "Disable/normalize banners; use reverse proxy to standardize headers.",
-    status: "resolved",
-    createdAt: "2026-02-15T02:00:00.000Z",
-  },
-  {
-    id: "i_018",
-    title: "CORS Allows Any Origin (*)",
-    severity: "medium",
-    category: "Application Security",
-    assetId: "a_sub_008",
-    evidence: "Access-Control-Allow-Origin set to '*'; may expose data to untrusted sites.",
-    recommendation: "Restrict origins; avoid wildcard with credentials; validate allowed domains.",
-    status: "open",
-    createdAt: "2026-02-16T05:00:00.000Z",
-  },
-  {
-    id: "i_019",
-    title: "Missing X-Content-Type-Options",
-    severity: "low",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "X-Content-Type-Options not present.",
-    recommendation: "Add 'nosniff' header to reduce MIME sniffing attacks.",
-    status: "open",
-    createdAt: "2026-02-16T06:00:00.000Z",
-  },
-  {
-    id: "i_020",
-    title: "Missing X-Frame-Options",
-    severity: "low",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "X-Frame-Options absent; clickjacking possible.",
-    recommendation: "Add X-Frame-Options or CSP frame-ancestors directive.",
-    status: "open",
-    createdAt: "2026-02-16T06:05:00.000Z",
-  },
+  const score =
+    r.applicationSecurity * w.applicationSecurity +
+    r.networkSecurity * w.networkSecurity +
+    r.patchingCadence * w.patchingCadence +
+    r.dnsHealth * w.dnsHealth +
+    r.endpointSecurity * w.endpointSecurity +
+    r.ipReputation * w.ipReputation +
+    r.hackerChatter * w.hackerChatter +
+    r.informationLeak * w.informationLeak +
+    r.socialEngineering * w.socialEngineering;
 
-  // --- เพิ่มอีก 20 รายการ ---
-  {
-    id: "i_021",
-    title: "Admin Panel Exposed",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_020",
-    evidence: "/admin returns login page publicly reachable.",
-    recommendation: "Restrict by VPN/IP; enforce MFA; move to non-guessable path as defense-in-depth.",
-    status: "open",
-    createdAt: "2026-02-16T07:10:00.000Z",
-  },
-  {
-    id: "i_022",
-    title: "Default Credentials Attempt Not Blocked",
-    severity: "medium",
-    category: "Social Engineering",
-    assetId: "a_sub_015",
-    evidence: "Login endpoint does not show throttling on repeated attempts.",
-    recommendation: "Enable lockout, captcha, and anomaly detection; enforce strong password policy.",
-    status: "open",
-    createdAt: "2026-02-16T07:20:00.000Z",
-  },
-  {
-    id: "i_023",
-    title: "Exposed Swagger UI",
-    severity: "medium",
-    category: "Information Leak",
-    assetId: "a_sub_008",
-    evidence: "/swagger or /api-docs accessible without authentication.",
-    recommendation: "Require auth for docs; restrict to internal; remove in production.",
-    status: "open",
-    createdAt: "2026-02-16T08:00:00.000Z",
-  },
-  {
-    id: "i_024",
-    title: "DNS Misconfiguration: Multiple A Records",
-    severity: "low",
-    category: "DNS/SSL",
-    assetId: "a_sub_019",
-    evidence: "Multiple A records detected; risk of inconsistency if not intentional.",
-    recommendation: "Validate DNS; document intended load balancing; add health checks.",
-    status: "resolved",
-    createdAt: "2026-02-16T08:30:00.000Z",
-  },
-  {
-    id: "i_025",
-    title: "Potential SQL Injection Indicator",
-    severity: "critical",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "Error-based DB messages appear when using special characters in query parameters.",
-    recommendation: "Use parameterized queries; validate inputs; add WAF rules; audit logs.",
-    status: "open",
-    createdAt: "2026-02-16T09:00:00.000Z",
-  },
-  {
-    id: "i_026",
-    title: "Sensitive File Exposed: .env",
-    severity: "critical",
-    category: "Information Leak",
-    assetId: "a_sub_008",
-    evidence: "Possible .env path returns 200 or exposes configuration hints.",
-    recommendation: "Block dotfiles; rotate secrets; ensure deployment excludes env files from web root.",
-    status: "open",
-    createdAt: "2026-02-16T09:10:00.000Z",
-  },
-  {
-    id: "i_027",
-    title: "Open Redirect Suspected",
-    severity: "medium",
-    category: "Application Security",
-    assetId: "a_sub_002",
-    evidence: "redirect parameter may allow external domain redirection.",
-    recommendation: "Allowlist redirect domains; enforce relative paths; encode/validate parameters.",
-    status: "open",
-    createdAt: "2026-02-16T10:00:00.000Z",
-  },
-  {
-    id: "i_028",
-    title: "Mixed Content Detected",
-    severity: "low",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "HTTPS page loads HTTP resources.",
-    recommendation: "Update resource URLs to HTTPS; use CSP upgrade-insecure-requests.",
-    status: "open",
-    createdAt: "2026-02-16T10:15:00.000Z",
-  },
-  {
-    id: "i_029",
-    title: "IP Reputation Warning",
-    severity: "medium",
-    category: "IP Reputation",
-    assetId: "a_ip_014",
-    evidence: "External reputation sources indicate prior abuse reports.",
-    recommendation: "Verify ownership; check logs; rotate IP if necessary; implement egress controls.",
-    status: "open",
-    createdAt: "2026-02-16T11:00:00.000Z",
-  },
-  {
-    id: "i_030",
-    title: "Exposed RDP Port 3389",
-    severity: "high",
-    category: "Network Security",
-    assetId: "a_ip_014",
-    evidence: "RDP service appears reachable; brute force risk high.",
-    recommendation: "Disable public RDP; place behind VPN; enable NLA+MFA; restrict by IP.",
-    status: "open",
-    createdAt: "2026-02-16T11:30:00.000Z",
-  },
-  {
-    id: "i_031",
-    title: "No Security.txt Present",
-    severity: "low",
-    category: "Digital Footprint",
-    assetId: "a_domain_001",
-    evidence: "/.well-known/security.txt not found.",
-    recommendation: "Publish security.txt to guide responsible disclosure and incident contact.",
-    status: "open",
-    createdAt: "2026-02-16T12:00:00.000Z",
-  },
-  {
-    id: "i_032",
-    title: "Potential Credential Stuffing Surface",
-    severity: "medium",
-    category: "Hacker Chatter",
-    assetId: "a_sub_002",
-    evidence: "Login endpoint publicly accessible; signals of leaked credential lists online (mock).",
-    recommendation: "Enable MFA; use breached password checks; add anomaly detection and rate limiting.",
-    status: "open",
-    createdAt: "2026-02-16T12:15:00.000Z",
-  },
-  {
-    id: "i_033",
-    title: "No DKIM Record Found",
-    severity: "medium",
-    category: "DNS/SSL",
-    assetId: "a_sub_003",
-    evidence: "DKIM selectors not discovered; mail integrity not guaranteed.",
-    recommendation: "Enable DKIM signing and publish selector records; validate alignment with DMARC.",
-    status: "open",
-    createdAt: "2026-02-16T13:00:00.000Z",
-  },
-  {
-    id: "i_034",
-    title: "Deprecated HTTP Header Detected",
-    severity: "low",
-    category: "Application Security",
-    assetId: "a_sub_020",
-    evidence: "Deprecated header patterns observed; could confuse proxy/cache.",
-    recommendation: "Normalize headers; remove legacy directives; verify caching strategy.",
-    status: "resolved",
-    createdAt: "2026-02-16T13:30:00.000Z",
-  },
-  {
-    id: "i_035",
-    title: "Possible XSS via Reflected Parameter",
-    severity: "high",
-    category: "Application Security",
-    assetId: "a_sub_006",
-    evidence: "Reflected input appears in response HTML without encoding (mock indicator).",
-    recommendation: "Output encode; sanitize; use CSP; add automated SAST/DAST checks.",
-    status: "open",
-    createdAt: "2026-02-16T14:00:00.000Z",
-  },
-  {
-    id: "i_036",
-    title: "Password Policy Too Weak",
-    severity: "medium",
-    category: "Social Engineering",
-    assetId: "a_sub_015",
-    evidence: "Min length and complexity not enforced; no reuse prevention (mock).",
-    recommendation: "Enforce 12+ length; block common passwords; add reuse checks; enable MFA.",
-    status: "open",
-    createdAt: "2026-02-16T14:20:00.000Z",
-  },
-  {
-    id: "i_037",
-    title: "Public S3 Bucket Reference Found",
-    severity: "medium",
-    category: "Information Leak",
-    assetId: "a_sub_007",
-    evidence: "Page references public bucket URLs; potential data exposure.",
-    recommendation: "Audit bucket ACL; enforce private by default; use signed URLs; review logs.",
-    status: "open",
-    createdAt: "2026-02-16T15:00:00.000Z",
-  },
-  {
-    id: "i_038",
-    title: "Exposed Backup File (.zip/.bak)",
-    severity: "critical",
-    category: "Information Leak",
-    assetId: "a_sub_007",
-    evidence: "Backup-like file naming patterns accessible (mock).",
-    recommendation: "Remove backups from web root; rotate secrets; add WAF rule for common backup extensions.",
-    status: "open",
-    createdAt: "2026-02-16T15:10:00.000Z",
-  },
-  {
-    id: "i_039",
-    title: "No MFA on Admin Accounts",
-    severity: "high",
-    category: "Endpoint Security",
-    assetId: "a_sub_009",
-    evidence: "Admin authentication lacks MFA enforcement (mock).",
-    recommendation: "Enforce MFA for privileged users; use conditional access; monitor suspicious sign-ins.",
-    status: "open",
-    createdAt: "2026-02-16T15:40:00.000Z",
-  },
-  {
-    id: "i_040",
-    title: "Patch Cadence Risk: Long Update Interval",
-    severity: "medium",
-    category: "Patching Cadence",
-    assetId: "a_ip_005",
-    evidence: "System indicates prolonged patch intervals (mock).",
-    recommendation: "Establish monthly patch window; automate updates; track SLA by asset criticality.",
-    status: "open",
-    createdAt: "2026-02-16T16:00:00.000Z",
-  },
-];
+  return Math.round(clamp(score, 0, 100));
+}
 
-/* =========================================================
-  HISTORY (ยาว + ใช้ได้กับหน้า History / Timeline)
-========================================================= */
-export const initialHistory: HistoryItem[] = [
-  { id: "h_001", at: "2025-07-22T02:12:00.000Z", summary: "Scan completed: discovery,dns,ssl", target: "kmitl.ac.th" },
-  { id: "h_002", at: "2025-08-20T01:28:00.000Z", summary: "Scan completed: ssl,web,headers", target: "portal.kmitl.ac.th" },
-  { id: "h_003", at: "2025-10-05T03:14:00.000Z", summary: "Scan completed: dns,mx,reputation", target: "mail.kmitl.ac.th" },
-  { id: "h_004", at: "2025-11-11T04:22:00.000Z", summary: "Scan completed: port-scan,service-detect,vuln-check", target: "203.150.10.20" },
-  { id: "h_005", at: "2025-12-02T03:26:00.000Z", summary: "Scan completed: cms-check,plugins,exposure", target: "research.kmitl.ac.th" },
-  { id: "h_006", at: "2025-12-18T05:19:00.000Z", summary: "Scan completed: auth,oauth,headers", target: "auth.kmitl.ac.th" },
-  { id: "h_007", at: "2026-01-10T02:08:00.000Z", summary: "Scan failed: web,headers,cms-check", target: "lms.kmitl.ac.th" },
-  { id: "h_008", at: "2026-02-01T01:13:00.000Z", summary: "Scan completed: port-scan,service-detect", target: "203.150.10.55" },
-  { id: "h_009", at: "2026-02-10T09:08:00.000Z", summary: "Scan completed: dns,ssl", target: "cdn.kmitl.ac.th" },
-  { id: "h_010", at: "2026-02-12T02:06:00.000Z", summary: "Scan completed: web,headers", target: "status.kmitl.ac.th" },
-  { id: "h_011", at: "2026-02-15T01:12:00.000Z", summary: "New critical issue found: .git exposure", target: "api.kmitl.ac.th" },
-  { id: "h_012", at: "2026-02-16T03:12:00.000Z", summary: "High issues increased: cookie flags missing", target: "portal.kmitl.ac.th" },
-  { id: "h_013", at: "2026-02-16T06:05:00.000Z", summary: "Header hardening recommended: XFO/XCTO", target: "student.kmitl.ac.th" },
-  { id: "h_014", at: "2026-02-16T09:10:00.000Z", summary: "Sensitive file pattern detected: .env", target: "api.kmitl.ac.th" },
-  { id: "h_015", at: "2026-02-16T11:30:00.000Z", summary: "Network exposure detected: RDP port 3389", target: "203.150.10.55" },
-  { id: "h_016", at: "2026-02-18T02:30:00.000Z", summary: "Scan running: api,swagger,auth-check", target: "api.kmitl.ac.th" },
-  { id: "h_017", at: "2026-02-18T03:15:00.000Z", summary: "Scan queued: ssl,headers,appsec", target: "payments.kmitl.ac.th" },
-];
-
-/* =========================================================
-  RISK BREAKDOWN (ตรง type ของคุณ)
-========================================================= */
-export const initialRisk: RiskBreakdown = {
-  applicationSecurity: 58,
-  networkSecurity: 62,
-  patchingCadence: 55,
-  dnsHealth: 70,
-  endpointSecurity: 60,
-  ipReputation: 65,
-  cubitScore: 64, // ✅ score รวมให้ dashboard
-  hackerChatter: 52,
-  informationLeak: 57,
-  socialEngineering: 54,
+const riskBaseNoCubit = {
+  applicationSecurity: int(45, 78),
+  networkSecurity: int(50, 85),
+  patchingCadence: int(40, 80),
+  dnsHealth: int(55, 92),
+  endpointSecurity: int(45, 88),
+  ipReputation: int(50, 90),
+  hackerChatter: int(35, 85),
+  informationLeak: int(40, 86),
+  socialEngineering: int(35, 82),
 };
+
+export const initialRisk: RiskBreakdown = {
+  ...riskBaseNoCubit,
+  cubitScore: computeCubit(riskBaseNoCubit),
+};
+
+/** ---------------------------
+ *  Issues (80 enterprise-style)
+ *  --------------------------*/
+const categories = [
+  "Application Security",
+  "Patching Cadence",
+  "Network Security",
+  "DNS Health",
+  "Endpoint Security",
+  "IP Reputation",
+  "Hacker Chatter",
+  "Information Leak",
+  "Social Engineering",
+] as const;
+
+const issueTitles = [
+  "Content Security Policy (CSP) Missing",
+  "Session Cookie Missing 'HttpOnly' Attribute",
+  "Session Cookie Missing 'Secure' Attribute",
+  "HSTS Not Enforced",
+  "TLS Weak Cipher Suite Detected",
+  "TLS Certificate Near Expiration",
+  "Open Redirect Pattern Detected",
+  "X-Frame-Options Missing",
+  "X-Content-Type-Options Missing",
+  "Referrer-Policy Not Set",
+  "Server Version Disclosure in Header",
+  "Directory Listing Enabled",
+  "Public S3 Bucket / Object Storage Exposed",
+  "Git Repository Exposed (.git)",
+  "Swagger / OpenAPI Docs Publicly Accessible",
+  "Admin Panel Exposed",
+  "WAF Not Detected / Not Enabled",
+  "Outdated CMS Core Version",
+  "Outdated Plugin With Known CVE",
+  "Default Credentials Suspected",
+  "RDP / SSH Exposed to Internet",
+  "SMB Service Exposed",
+  "Unrestricted CORS Policy",
+  "Missing DMARC Policy",
+  "SPF Softfail / Misconfiguration",
+  "DKIM Missing / Misconfigured",
+  "MX Points to Third-party Without Alignment",
+  "Subdomain Takeover Risk (Dangling DNS)",
+  "DNS Zone Transfer Misconfiguration",
+  "New Credential Leak Mention (Paste/Forum)",
+  "New Phishing Kit Targeting Organization",
+  "Brand Impersonation Domain Detected",
+  "PII Exposure via Public Endpoint",
+  "Sensitive File Exposed (backup.zip)",
+];
+
+const recos = [
+  "Enforce secure headers and validate using automated security checks in CI/CD.",
+  "Enable HSTS with a long max-age and includeSubDomains; preload if applicable.",
+  "Rotate credentials and enforce MFA. Remove default accounts and audit access logs.",
+  "Restrict admin and documentation endpoints with authentication and IP allowlisting.",
+  "Patch affected software to a supported version and remove vulnerable plugins/components.",
+  "Harden DNS: remove dangling records, enable DNSSEC where possible, restrict AXFR.",
+  "Restrict CORS to explicit trusted origins and disable wildcard in sensitive endpoints.",
+  "Email hygiene: configure SPF, DKIM, DMARC with alignment and monitoring.",
+  "Reduce exposure: close unused ports, enforce VPN / zero-trust access for management services.",
+  "Implement DLP and secret scanning; rotate leaked keys and add monitoring/alerting.",
+];
+
+const evidences = [
+  "Observed response headers do not include recommended security directives.",
+  "Cookie attributes indicate potential session theft risk under MITM conditions.",
+  "TLS scan identified legacy cipher suites and non-optimal protocol configuration.",
+  "Endpoint discovered via public crawling; access not restricted by authentication.",
+  "Service detected from external scan; exposed to the public internet.",
+  "DNS record appears to reference deprovisioned resource; takeover possible.",
+  "Third-party references found; alignment and policy enforcement not detected.",
+  "Mention detected from public sources suggesting possible credential reuse/leak.",
+  "Publicly accessible file indicates potential backup or sensitive artifact exposure.",
+];
+
+function sevFromIndex(i: number): Severity {
+  // กระจาย severity แบบ enterprise-ish
+  const r = i % 20;
+  if (r === 0) return "critical";
+  if (r <= 3) return "high";
+  if (r <= 9) return "medium";
+  return "low";
+}
+
+function statusFromIndex(i: number): "open" | "resolved" {
+  // ให้มีทั้ง open และ resolved
+  return i % 6 === 0 ? "resolved" : "open";
+}
+
+export const initialIssues: Issue[] = Array.from({ length: 80 }).map((_, idx) => {
+  const sev = sevFromIndex(idx + 1);
+  const cat = pick([...categories]);
+  const assetId = pick(assetIds);
+
+  // เวลา: ย้อนหลัง 12 เดือน กระจายวันในเดือน
+  const mAgo = int(0, 11);
+  const base = monthStartMonthsAgo(mAgo);
+  const at = addMinutes(addDays(base, int(0, 25)), int(0, 600));
+
+  const title = pick(issueTitles);
+  const evidence = pick(evidences);
+  const recommendation = pick(recos);
+
+  return {
+    id: `iss-${String(idx + 1).padStart(3, "0")}`,
+    title,
+    severity: sev,
+    category: cat,
+    assetId,
+    evidence,
+    recommendation,
+    status: statusFromIndex(idx + 1),
+    createdAt: isoAt(at),
+  };
+});
+
+/** ---------------------------
+ *  Scans (24 = 2 per month)
+ *  --------------------------*/
+const modulePool = [
+  ["discovery", "dns", "ssl"],
+  ["ssl", "web", "headers"],
+  ["dns", "mx", "reputation"],
+  ["port-scan", "service-detect", "vuln-check"],
+  ["cms-check", "plugins", "exposure"],
+  ["auth", "oauth", "headers"],
+] as const;
+
+function scanStatusFromIndex(i: number): ScanStatus {
+  const r = i % 10;
+  if (r === 0) return "failed";
+  if (r <= 1) return "running";
+  if (r <= 2) return "queued";
+  return "done";
+}
+
+export const initialScans: ScanTask[] = Array.from({ length: 24 }).map((_, idx) => {
+  const monthIndex = Math.floor(idx / 2); // 0..11
+  const base = monthStartMonthsAgo(11 - monthIndex); // เก่าก่อน -> ใหม่ล่าสุด
+  const started = addMinutes(addDays(base, idx % 2 === 0 ? 6 : 18), int(0, 500));
+  const status = scanStatusFromIndex(idx + 1);
+
+  const createdAt = isoAt(started);
+  const finishedAt =
+    status === "done" || status === "failed"
+      ? isoAt(addMinutes(started, int(8, 120)))
+      : undefined;
+
+  const progress =
+    status === "done" || status === "failed" ? 100 : status === "running" ? int(20, 85) : 0;
+
+  // target เป็น asset id หรือ string ก็ได้ ตาม type (string)
+  const targetAsset = pick(initialAssets);
+  const target = targetAsset.kind === "service" ? targetAsset.name : targetAsset.name;
+
+  return {
+    id: `scan-${String(idx + 1).padStart(3, "0")}`,
+    target,
+    modules: pick([...modulePool]) as unknown as string[],
+    status,
+    progress,
+    createdAt,
+    finishedAt,
+  };
+});
+
+/** ---------------------------
+ *  History (48 = 4 per month)
+ *  --------------------------*/
+function summaryForHistory(kind: "scan_done" | "scan_failed" | "issue" | "change", mods: string, target: string) {
+  switch (kind) {
+    case "scan_failed":
+      return `Scan failed: ${mods} • ${target}`;
+    case "scan_done":
+      return `Scan completed: ${mods} • ${target}`;
+    case "issue":
+      return `New issue detected: ${mods} • ${target}`;
+    default:
+      return `Change observed: ${mods} • ${target}`;
+  }
+}
+
+export const initialHistory: HistoryItem[] = Array.from({ length: 48 }).map((_, idx) => {
+  const monthIndex = Math.floor(idx / 4); // 0..11
+  const base = monthStartMonthsAgo(11 - monthIndex);
+
+  const day = [3, 9, 16, 23][idx % 4] ?? 10;
+  const at = addMinutes(addDays(base, day), int(0, 600));
+
+  const target = pick(initialAssets).name;
+  const mods = (pick([...modulePool]) as unknown as string[]).join(",");
+
+  const kind = pick(["scan_done", "scan_failed", "issue", "change"] as const);
+
+  return {
+    id: `his-${String(idx + 1).padStart(3, "0")}`,
+    at: isoAt(at),
+    summary: summaryForHistory(kind, mods, target),
+    target,
+  };
+});

@@ -1,8 +1,14 @@
 
 /* พื้นที่เนื้อหา (ด้านขวาของ sidebar) */
-.app-content,
-.main-content,
-.content,
+.app-content {
+  padding: 0px;
+}
+.main-content {
+  padding: 0px;
+}
+.content {
+  padding: 0px;
+}
 .page-content {
   background: #ffff;      /* ✅ เทาอ่อนแบบต้นแบบ */
   min-height: 100vh;
@@ -13,7 +19,7 @@
 .app-shell {
   display: flex;
   min-height: 100vh;
-  background: #070a2b;
+  background: #ffff;
   color: #111;
 }
 
@@ -25,10 +31,19 @@
 }
 
 .app-content {
-  padding: 18px;
+  padding: 0px;
+  margin: 0px;
   min-width: 0;
 }
 
 .app-shell.collapsed .sidebar {
   width: 74px;
+}
+
+.layout-content {
+  padding: 24px;
+}
+
+.layout-content.no-padding {
+  padding: 0;
 }

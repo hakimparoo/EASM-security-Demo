@@ -1,120 +1,125 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useOrganization } from "../../contexts/OrganizationContext";
 import "./Subscription.css";
 
-function addDays(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d;
+type SubscriptionInfo = {
+  name: string;
+  type: string;
+  startDate: string; // dd/mm/yyyy
+  expiredDate: string; // dd/mm/yyyy
+};
+
+function cx(...parts: Array<string | false | undefined | null>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+function InfoIcon() {
+  return (
+    <span className="sub-infoIcon" aria-hidden="true">
+      i
+    </span>
+  );
+}
+
+function DiamondIcon() {
+  return (
+    <svg
+      className="sub-diamond"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M12 21 3.5 9.5 7.5 3h9l4 6.5L12 21Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.5 3 12 21 16.5 3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        opacity="0.85"
+      />
+      <path
+        d="M3.5 9.5h17"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        opacity="0.85"
+      />
+    </svg>
+  );
 }
 
 export default function SubscriptionPage() {
-  const nav = useNavigate();
-  const { org } = useOrganization();
+  const navigate = useNavigate();
 
-  const meta = useMemo(() => {
-    // mock subscription info
-    const status = org.plan === "free" ? "Active (Free)" : "Active";
-    const renewAt = org.plan === "free" ? null : addDays(18);
-    const seats = org.plan === "enterprise" ? 50 : org.plan === "pro" ? 10 : 3;
-    const scanLimit = org.plan === "enterprise" ? "Unlimited" : org.plan === "pro" ? "2,000 / month" : "200 / month";
-    const targets = org.plan === "enterprise" ? "Unlimited" : org.plan === "pro" ? "200" : "20";
-    return { status, renewAt, seats, scanLimit, targets };
-  }, [org.plan]);
+  // mock data (ยังไม่ต่อ API)
+  const data: SubscriptionInfo = useMemo(
+    () => ({
+      name: "Premium ASM",
+      type: "Standard",
+      startDate: "01/01/2025",
+      expiredDate: "01/01/2026",
+    }),
+    []
+  );
+
+  const onViewPlan = () => {
+    // ให้กดได้จริง: ไปหน้า subscription plan (ปรับ path ให้ตรง route ของคุณได้)
+    navigate("/subscription-plan");
+  };
 
   return (
-    <div className="sub">
-      <div className="sub-head">
-        <div>
-          <div className="sub-title">Subscription</div>
-          <div className="sub-sub">Plan and usage overview (mock)</div>
+    <div className="sub-wrap">
+      <h1 className="sub-title">Subscription</h1>
+
+      <section className="sub-card">
+        <div className="sub-cardHead">
+          <div className="sub-cardHeadLeft">
+            <InfoIcon />
+            <div className="sub-cardHeadText">information</div>
+          </div>
         </div>
 
-        <button className="btn primary" onClick={() => nav("/subscription-plan")} type="button">
-          Change Plan
-        </button>
-      </div>
+        <div className="sub-divider" />
 
-      <div className="grid">
-        <section className="panel">
-          <div className="row">
-            <div>
-              <div className="muted">Current plan</div>
-              <div style={{ marginTop: 6, display: "flex", gap: 10, alignItems: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 900 }}>{org.plan.toUpperCase()}</div>
-                <span className={`badge ${org.plan}`}>{meta.status}</span>
+        <div className="sub-grid">
+          <div className="sub-row">
+            <div className="sub-label">Subscription Name:</div>
+            <div className="sub-value">{data.name}</div>
+          </div>
+
+          <div className="sub-row">
+            <div className="sub-label">Subscription Type:</div>
+            <div className="sub-value">{data.type}</div>
+          </div>
+
+          <div className="sub-row sub-row--date">
+            <div className="sub-label">Subscription Date:</div>
+            <div className="sub-value">
+              <div className="sub-dateLine">
+                <span className="sub-dateStart">Start:</span>{" "}
+                <span className="sub-dateText">{data.startDate}</span>
+              </div>
+              <div className="sub-dateLine">
+                <span className="sub-dateExpired">Expired:</span>{" "}
+                <span className="sub-dateText">{data.expiredDate}</span>
               </div>
             </div>
-
-            <div style={{ textAlign: "right" }}>
-              <div className="muted">Renewal</div>
-              <div style={{ marginTop: 6, fontWeight: 900 }}>
-                {meta.renewAt ? meta.renewAt.toLocaleDateString() : "—"}
-              </div>
-            </div>
           </div>
+        </div>
+         <div className="sub-divider" />
+        <button type="button" className="sub-viewPlan" onClick={onViewPlan}>
+        <DiamondIcon />
+        <span>view subscription plan</span>
+      </button>
+      </section>
 
-          <div className="kpi">
-            <div className="kpi-card">
-              <div className="kpi-title">Seats</div>
-              <div className="kpi-val">{meta.seats}</div>
-              <div className="kpi-sub">members allowed</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-title">Targets</div>
-              <div className="kpi-val">{meta.targets}</div>
-              <div className="kpi-sub">monitored assets</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-title">Scan Limit</div>
-              <div className="kpi-val">{meta.scanLimit}</div>
-              <div className="kpi-sub">tasks per month</div>
-            </div>
-          </div>
-
-          <div className="sep" />
-
-          <div className="note">
-            Tip: หน้า Subscription ใช้ในการเดโม “ระบบ SaaS” ให้ดูสมจริง (Plan/Usage/Upgrade flow)
-          </div>
-        </section>
-
-        <section className="panel">
-          <div style={{ fontWeight: 900, marginBottom: 10 }}>Billing (Mock)</div>
-
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div className="muted">Billing cycle</div>
-            <div style={{ fontWeight: 900 }}>{org.plan === "free" ? "—" : "Monthly"}</div>
-          </div>
-
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div className="muted">Payment method</div>
-            <div style={{ fontWeight: 900 }}>{org.plan === "free" ? "—" : "Visa **** 4242"}</div>
-          </div>
-
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div className="muted">Invoice</div>
-            <button className="btn small" type="button" onClick={() => alert("Download invoice (mock)")}>
-              Download
-            </button>
-          </div>
-
-          <div className="sep" />
-
-          <div className="row">
-            <div>
-              <div style={{ fontWeight: 900 }}>Need enterprise?</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Contact sales for SSO, audit, and custom SLA.
-              </div>
-            </div>
-            <button className="btn" type="button" onClick={() => alert("Contact sales (mock)")}>
-              Contact
-            </button>
-          </div>
-        </section>
-      </div>
+      
+      
     </div>
   );
 }

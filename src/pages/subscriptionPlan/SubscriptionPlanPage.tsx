@@ -1,141 +1,271 @@
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useOrganization } from "../../contexts/OrganizationContext";
-import "../subscription/Subscription.css";
+import "../subscription/Subscription.css"
 
-type Plan = "free" | "pro" | "enterprise";
+type PlanKey = "free" | "pro";
 
-const plans: Array<{
-  id: Plan;
-  name: string;
-  price: string;
-  unit: string;
-  featured?: boolean;
+type Plan = {
+  key: PlanKey;
+  title: string;
+  priceBig: string;
+  priceUnit: string;
+  priceSub?: string;
+  buttonText: string;
+  isCurrent?: boolean;
   features: string[];
-}> = [
-  {
-    id: "free",
-    name: "Free",
-    price: "฿0",
-    unit: "forever",
-    features: [
-      "Up to 20 targets",
-      "200 scans / month",
-      "Basic issues list",
-      "Community support",
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: "฿2,490",
-    unit: "per month",
-    featured: true,
-    features: [
-      "Up to 200 targets",
-      "2,000 scans / month",
-      "Risk score breakdown",
-      "Email alerts",
-      "Priority support",
-    ],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "Custom",
-    unit: "contact sales",
-    features: [
-      "Unlimited targets & scans",
-      "SSO / SAML (mock)",
-      "Advanced audit log",
-      "Dedicated SLA",
-      "Security review support",
-    ],
-  },
-];
+};
 
-function toast(msg: string) {
-  const el = document.createElement("div");
-  el.className = "toast";
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => el.classList.add("show"), 10);
-  setTimeout(() => {
-    el.classList.remove("show");
-    setTimeout(() => el.remove(), 250);
-  }, 1800);
+function cx(...parts: Array<string | false | undefined | null>) {
+  return parts.filter(Boolean).join(" ");
 }
 
-export default function SubscriptionPlanPage() {
-  const nav = useNavigate();
-  const { org, setPlan } = useOrganization();
+export default function SubscriptionPage() {
+  const navigate = useNavigate();
 
-  const pick = (p: Plan) => {
-    setPlan(p);
-    toast(`Plan updated to ${p.toUpperCase()} (mock)`);
-    nav("/subscription");
+  // mock: แผนปัจจุบัน (ปรับจาก state/Context ได้ทีหลัง)
+  const [currentPlan, setCurrentPlan] = useState<PlanKey>("free");
+
+  const plans: Plan[] = useMemo(
+    () => [
+      {
+        key: "free",
+        title: "free trial",
+        priceBig: "0",
+        priceUnit: "Bath/",
+        priceSub: "14 day (first attempt)",
+        buttonText: "your current plan",
+        isCurrent: currentPlan === "free",
+        features: [
+          "cannot doing user management",
+          "view information like a full plan",
+          "single account.",
+          "limit in 14 days",
+        ],
+      },
+      {
+        key: "pro",
+        title: "pro",
+        priceBig: "2k",
+        priceUnit: "Bath/",
+        priceSub: "month",
+        buttonText: "select",
+        isCurrent: currentPlan === "pro",
+        features: [
+          "doing user management",
+          "provide admin account",
+          "manage organization profile",
+          "view user log",
+        ],
+      },
+    ],
+    [currentPlan]
+  );
+
+  const onClose = () => {
+    navigate(-1);
+  };
+
+  const onSelectPlan = (key: PlanKey) => {
+    if (key === currentPlan) return;
+
+    // mock flow: เลือกแผน → เซฟ state → ไปหน้า subscription
+    setCurrentPlan(key);
+    window.alert(`Selected plan: ${key.toUpperCase()} (mock)`);
+    navigate("/subscription"); // ปรับ route ให้ตรงโปรเจคคุณได้
+  };
+
+  const styles = {
+    page: {
+      minHeight: "calc(100vh - 64px)", // เผื่อ topbar สูง 64
+      padding: "18px 24px 40px",
+      boxSizing: "border-box" as const,
+      background:
+        "radial-gradient(1200px 700px at 30% 40%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 60%), linear-gradient(90deg, #070a4a 0%, #0b0f5c 35%, #0f14a6 100%)",
+      position: "relative" as const,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    closeBtn: {
+      position: "absolute" as const,
+      top: "22px",
+      right: "28px",
+      width: "44px",
+      height: "44px",
+      border: "0",
+      background: "transparent",
+      color: "rgba(255,255,255,0.85)",
+      cursor: "pointer",
+      display: "grid",
+      placeItems: "center",
+    },
+    container: {
+      width: "min(980px, 96%)",
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "28px",
+      alignItems: "stretch",
+    },
+    card: {
+      background: "rgba(70, 75, 190, 0.35)",
+      border: "1.5px solid rgba(255,255,255,0.55)",
+      borderRadius: "18px",
+      boxShadow: "0 0 26px rgba(0,0,0,0.35)",
+      padding: "26px 28px",
+      color: "#fff",
+      position: "relative" as const,
+      overflow: "hidden" as const,
+      minHeight: "540px",
+    },
+    cardGlow: {
+      position: "absolute" as const,
+      inset: "-60px",
+      background:
+        "radial-gradient(520px 280px at 50% 35%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 65%)",
+      pointerEvents: "none" as const,
+    },
+    title: {
+      textAlign: "center" as const,
+      fontSize: "34px",
+      fontWeight: 900,
+      textTransform: "lowercase" as const,
+      margin: "6px 0 26px",
+      letterSpacing: "0.3px",
+    },
+    priceRow: {
+      display: "grid",
+      gridTemplateColumns: "auto 1fr",
+      gap: "14px",
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: "18px",
+      marginBottom: "26px",
+    },
+    priceBig: {
+      fontSize: "86px",
+      fontWeight: 900,
+      lineHeight: 1,
+      letterSpacing: "-1px",
+    },
+    priceMeta: {
+      display: "grid",
+      gap: "2px",
+      alignContent: "center" as const,
+      fontSize: "18px",
+      opacity: 0.95,
+    },
+    btnWrap: {
+      display: "flex",
+      justifyContent: "center",
+      margin: "20px 0 20px",
+    },
+    btn: {
+      height: "54px",
+      minWidth: "260px",
+      borderRadius: "999px",
+      border: "1.5px solid rgba(255,255,255,0.65)",
+      background: "rgba(255,255,255,0.12)",
+      color: "#0b0b0b",
+      fontWeight: 800,
+      fontSize: "22px",
+      cursor: "pointer",
+      padding: "0 26px",
+    },
+    btnPrimary: {
+      background: "rgba(255,255,255,0.78)",
+      border: "1.5px solid rgba(255,255,255,0.78)",
+      color: "#111",
+    },
+    btnDisabled: {
+      background: "rgba(255,255,255,0.08)",
+      color: "rgba(255,255,255,0.75)",
+      cursor: "default",
+    },
+    featureList: {
+      margin: "22px 0 0",
+      paddingLeft: "18px",
+      listStyleType: "disc" as const,
+      opacity: 0.92,
+      fontSize: "16px",
+      lineHeight: 1.35,
+    },
+    featureItem: {
+      margin: "6px 0",
+    },
+    dividerLine: {
+      height: "1px",
+      background: "rgba(255,255,255,0.25)",
+      width: "100%",
+      marginTop: "18px",
+    },
+    responsive: `
+      @media (max-width: 900px) {
+        .subplan-grid { grid-template-columns: 1fr !important; }
+      }
+    `,
   };
 
   return (
-    <div className="sub">
-      <div className="sub-head">
-        <div>
-          <div className="sub-title">Choose a Plan</div>
-          <div className="sub-sub">Upgrade/downgrade plans (mock)</div>
-        </div>
+    <div style={styles.page}>
+      <style>{styles.responsive}</style>
 
-        <button className="btn" type="button" onClick={() => nav("/subscription")}>
-          Back
-        </button>
-      </div>
+      <button type="button" style={styles.closeBtn} onClick={onClose} aria-label="Close">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M6 6l12 12M18 6 6 18"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
 
-      <section className="panel">
-        <div className="row">
-          <div>
-            <div className="muted">Current plan</div>
-            <div style={{ marginTop: 6, display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>{org.plan.toUpperCase()}</div>
-              <span className={`badge ${org.plan}`}>Active</span>
-            </div>
-          </div>
-          <div className="note" style={{ maxWidth: 520 }}>
-            Tip: เดโม flow SaaS ให้ครบ — เลือก plan → กลับไป subscription เห็นค่า usage เปลี่ยนจริง
-          </div>
-        </div>
+      <div className="subplan-grid" style={styles.container}>
+        {plans.map((p) => {
+          const isCurrent = p.isCurrent;
 
-        <div className="cards">
-          {plans.map((p) => (
-            <div key={p.id} className={`plan ${p.id} ${p.featured ? "featured" : ""}`}>
-              <div className="row">
-                <div className="plan-name">{p.name}</div>
-                {p.featured && <span className="badge pro">Recommended</span>}
+          return (
+            <div key={p.key} style={styles.card}>
+              <div style={styles.cardGlow} />
+
+              <div style={styles.title}>{p.title}</div>
+
+              <div style={styles.priceRow}>
+                <div style={styles.priceBig}>{p.priceBig}</div>
+                <div style={styles.priceMeta}>
+                  <div>{p.priceUnit}</div>
+                  <div>{p.priceSub}</div>
+                </div>
               </div>
 
-              <div>
-                <div className="plan-price">{p.price}</div>
-                <div className="plan-unit">{p.unit}</div>
+              <div style={styles.btnWrap}>
+                <button
+                  type="button"
+                  onClick={() => onSelectPlan(p.key)}
+                  disabled={isCurrent}
+                  style={{
+                    ...styles.btn,
+                    ...(p.key === "pro" ? styles.btnPrimary : {}),
+                    ...(isCurrent ? styles.btnDisabled : {}),
+                  }}
+                >
+                  {isCurrent ? "your current plan" : "select"}
+                </button>
               </div>
 
-              <ul className="ul">
-                {p.features.map((f) => (
-                  <li key={f}>{f}</li>
+              <div style={styles.dividerLine} />
+
+              <ul style={styles.featureList}>
+                {p.features.map((f, idx) => (
+                  <li key={idx} style={styles.featureItem}>
+                    {f}
+                  </li>
                 ))}
               </ul>
-
-              <div className="sep" />
-
-              {org.plan === p.id ? (
-                <button className="btn" type="button" disabled style={{ opacity: 0.65 }}>
-                  Current Plan
-                </button>
-              ) : (
-                <button className="btn primary" type="button" onClick={() => pick(p.id)}>
-                  Select {p.name}
-                </button>
-              )}
             </div>
-          ))}
-        </div>
-      </section>
+          );
+        })}
+      </div>
     </div>
   );
 }

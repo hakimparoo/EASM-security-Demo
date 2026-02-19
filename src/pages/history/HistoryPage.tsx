@@ -1,3 +1,4 @@
+// src/pages/history/HistoryPage.tsx
 import { useMemo, useState } from "react";
 import { useEasmStore } from "../../contexts/EasmStore";
 import { useOrganization } from "../../contexts/OrganizationContext";
@@ -14,20 +15,20 @@ import {
   Legend,
 } from "recharts";
 
-type Status = "done" | "running" | "queued" | "failed" | "info";
+type TLStatus = "done" | "failed" | "running" | "queued" | "info";
 
-type TimelinePoint = {
+type TimelineEvent = {
   id: string;
   ts: number; // unix ms
   target: string;
-  status: Status;
-  title: string;
+  status: TLStatus;
+  title: string; // ใช้ค้นหา + tooltip
   modules?: string;
 };
 
 type MonthlyRow = {
-  monthKey: string;   // YYYY-MM
-  monthLabel: string; // Jan 2026
+  monthKey: string; // YYYY-MM
+  monthLabel: string; // e.g. Feb 2026
   done: number;
   failed: number;
   running: number;
@@ -36,26 +37,73 @@ type MonthlyRow = {
   total: number;
 };
 
+/** ---------------------------
+ *  Helpers
+ *  --------------------------*/
+function pad2(n: number) {
+  return n < 10 ? `0${n}` : `${n}`;
+}
+
 function monthKeyFromTs(ts: number) {
   const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  return `${y}-${m < 10 ? "0" + m : m}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
 }
 
-function monthLabelFromKey(key: string) {
-  const [y, mm] = key.split("-");
-  const m = Number(mm) - 1;
-  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${names[m]} ${y}`;
+function monthLabelFromKey(k: string) {
+  // k = YYYY-MM
+  const [yy, mm] = k.split("-").map((x) => Number(x));
+  const d = new Date(yy, (mm || 1) - 1, 1);
+  return d.toLocaleString(undefined, { month: "short", year: "numeric" });
 }
 
-function pickTargetFromScan(s: any) {
-  return String(s.asset || s.target || s.targetName || s.domain || s.ip || s.name || "unknown-target");
+/** ดึงเวลาให้ครอบคลุมหลาย schema (แก้จุดเดียว) */
+function pickTimeAny(obj: any): number {
+  const raw =
+    obj?.ts ??
+    obj?.at ??
+    obj?.time ??
+    obj?.timestamp ??
+    obj?.occurredAt ??
+    obj?.createdAt ??
+    obj?.updatedAt ??
+    obj?.finishedAt ??
+    obj?.completedAt ??
+    obj?.date;
+
+  if (typeof raw === "number") {
+    const ms = raw < 1e12 ? raw * 1000 : raw; // sec -> ms
+    return Number.isFinite(ms) ? ms : Date.now();
+  }
+
+  if (typeof raw === "string") {
+    const ms = new Date(raw).getTime();
+    return Number.isFinite(ms) ? ms : Date.now();
+  }
+
+  return Date.now();
 }
 
-function pickStatusFromScan(s: any): Status {
-  const st = (s.status || s.state || "").toString().toLowerCase();
+function pickTargetAny(obj: any): string {
+  return (
+    obj?.target ||
+    obj?.asset ||
+    obj?.assetName ||
+    obj?.domain ||
+    obj?.ip ||
+    obj?.name ||
+    "unknown-target"
+  );
+}
+
+function pickModulesAny(obj: any): string {
+  if (Array.isArray(obj?.modules)) return obj.modules.join(",");
+  if (typeof obj?.modules === "string") return obj.modules;
+  if (typeof obj?.module === "string") return obj.module;
+  return "";
+}
+
+function statusFromScan(s: any): TLStatus {
+  const st = String(s?.status || s?.state || "").toLowerCase();
   if (st.includes("fail")) return "failed";
   if (st.includes("done") || st.includes("success") || st.includes("complete")) return "done";
   if (st.includes("run")) return "running";
@@ -63,21 +111,24 @@ function pickStatusFromScan(s: any): Status {
   return "info";
 }
 
-function pickTimeFromScan(s: any): number {
-  const raw = s.finishedAt || s.completedAt || s.updatedAt || s.createdAt || s.startedAt;
-  const t = raw ? new Date(raw).getTime() : Date.now();
-  return Number.isFinite(t) ? t : Date.now();
+function statusFromHistory(h: any): TLStatus {
+  const st = String(h?.status || h?.state || h?.result || "").toLowerCase();
+
+  if (st.includes("fail")) return "failed";
+  if (st.includes("done") || st.includes("success") || st.includes("complete")) return "done";
+  if (st.includes("run")) return "running";
+  if (st.includes("queue")) return "queued";
+
+  // ถ้าไม่มีสถานะ ให้เดาจาก summary
+  const summary = String(h?.summary || h?.title || h?.message || "").toLowerCase();
+  if (summary.includes("failed")) return "failed";
+  if (summary.includes("completed") || summary.includes("done")) return "done";
+
+  return "info";
 }
 
-function pickModulesFromScan(s: any): string {
-  if (Array.isArray(s.modules)) return s.modules.join(",");
-  if (typeof s.modules === "string") return s.modules;
-  if (typeof s.module === "string") return s.module;
-  return "";
-}
-
-function statusColor(status: Status) {
-  switch (status) {
+function lineColor(s: TLStatus) {
+  switch (s) {
     case "done":
       return "#16a34a";
     case "failed":
@@ -91,120 +142,141 @@ function statusColor(status: Status) {
   }
 }
 
-function TooltipMonthly({ active, payload, label }: any) {
+function TooltipBox({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
 
-  // payload มีหลายเส้น เลย map เอาเฉพาะที่มีค่า
-  const rows = payload
-    .filter((p: any) => typeof p.value === "number" && p.value > 0)
-    .map((p: any) => ({ name: p.name, value: p.value, color: p.color }));
+  // payload เป็น series หลายเส้น (done/failed/..)
+  const row: MonthlyRow = payload[0].payload;
 
   return (
     <div className="tlTooltip">
       <div className="tlTooltipTitle">{label}</div>
-      {rows.length === 0 ? (
-        <div className="tlTooltipRow">
-          <span className="k">Events:</span> <span className="v">0</span>
-        </div>
-      ) : (
-        rows.map((r: any) => (
-          <div className="tlTooltipRow" key={r.name}>
-            <span className="k">{r.name}:</span>{" "}
-            <span className="v" style={{ color: r.color, fontWeight: 900 }}>
-              {r.value}
-            </span>
-          </div>
-        ))
-      )}
+      <div className="tlTooltipRow">
+        <span className="k">Total:</span> <span className="v">{row.total}</span>
+      </div>
+      <div className="tlTooltipRow">
+        <span className="k" style={{ color: lineColor("done") }}>Done:</span>{" "}
+        <span className="v">{row.done}</span>
+      </div>
+      <div className="tlTooltipRow">
+        <span className="k" style={{ color: lineColor("failed") }}>Failed:</span>{" "}
+        <span className="v">{row.failed}</span>
+      </div>
+      <div className="tlTooltipRow">
+        <span className="k" style={{ color: lineColor("running") }}>Running:</span>{" "}
+        <span className="v">{row.running}</span>
+      </div>
+      <div className="tlTooltipRow">
+        <span className="k" style={{ color: lineColor("queued") }}>Queued:</span>{" "}
+        <span className="v">{row.queued}</span>
+      </div>
+      <div className="tlTooltipRow">
+        <span className="k" style={{ color: lineColor("info") }}>Info:</span>{" "}
+        <span className="v">{row.info}</span>
+      </div>
     </div>
   );
 }
 
+/** ---------------------------
+ *  Page
+ *  --------------------------*/
 export default function HistoryPage() {
   const store = useEasmStore();
 
-  // useOrganization บางโปรเจคคืน {org} บางโปรเจคคืน org ตรง ๆ
+  // OrganizationContext บางโปรเจคคืน {org} บางโปรเจคคืน org ตรง ๆ → ทำให้ robust
   const orgCtx: any = useOrganization();
   const org = orgCtx?.org ?? orgCtx;
 
+  // UI state (เหมือนเดิม)
   const [q, setQ] = useState("");
   const [target, setTarget] = useState("all");
   const [appliedQ, setAppliedQ] = useState("");
   const [appliedTarget, setAppliedTarget] = useState("all");
 
-  // 1) สร้าง events (points) จาก store.history ถ้ามี ไม่งั้นใช้ store.scans
-  const points: TimelinePoint[] = useMemo(() => {
-    const fromHistory = Array.isArray((store as any).history) ? (store as any).history : null;
+  /** 1) รวม events จาก history + scans ให้เป็นชุดเดียว */
+  const events: TimelineEvent[] = useMemo(() => {
+    const list: TimelineEvent[] = [];
 
-    if (fromHistory?.length) {
-      return fromHistory
-        .map((h: any, idx: number): TimelinePoint => {
-          const ts = h.ts ? Number(h.ts) : h.createdAt ? new Date(h.createdAt).getTime() : Date.now();
-          const t = Number.isFinite(ts) ? ts : Date.now();
-          const tgt = String(h.target || h.asset || h.domain || h.ip || "unknown-target");
-          const st: Status = (h.status as Status) || (h.state as Status) || "info";
-
-          return {
-            id: h.id || `h-${idx}`,
-            ts: t,
-            target: tgt,
-            status: st,
-            title: h.title || h.message || "Activity",
-            modules: h.modules ? String(h.modules) : "",
-          };
-        })
-        .sort((a: TimelinePoint, b: TimelinePoint) => a.ts - b.ts);
-    }
-
-    const scans = Array.isArray((store as any).scans) ? (store as any).scans : [];
-    return scans
-      .map((s: any, idx: number): TimelinePoint => {
-        const ts = pickTimeFromScan(s);
-        const tgt = pickTargetFromScan(s);
-        const st = pickStatusFromScan(s);
-        const mods = pickModulesFromScan(s);
-        const title = st === "failed" ? `Scan failed: ${mods || "scan"}` : `Scan completed: ${mods || "scan"}`;
-
-        return {
-          id: s.id || `s-${idx}`,
+    const history = (store as any)?.history;
+    if (Array.isArray(history) && history.length) {
+      history.forEach((h: any, idx: number) => {
+        const ts = pickTimeAny(h);
+        const tgt = String(pickTargetAny(h));
+        const status = statusFromHistory(h);
+        const title = String(h?.summary || h?.title || h?.message || "Activity");
+        list.push({
+          id: h?.id || `h-${idx}`,
           ts,
           target: tgt,
-          status: st,
+          status,
+          title,
+          modules: pickModulesAny(h),
+        });
+      });
+    }
+
+    const scans = (store as any)?.scans;
+    if (Array.isArray(scans) && scans.length) {
+      scans.forEach((s: any, idx: number) => {
+        const ts = pickTimeAny(s);
+        const tgt = String(pickTargetAny(s));
+        const status = statusFromScan(s);
+        const mods = pickModulesAny(s);
+
+        const title =
+          status === "failed"
+            ? `Scan failed: ${mods || "scan"}`
+            : status === "running"
+              ? `Scan running: ${mods || "scan"}`
+              : status === "queued"
+                ? `Scan queued: ${mods || "scan"}`
+                : `Scan completed: ${mods || "scan"}`;
+
+        list.push({
+          id: s?.id || `s-${idx}`,
+          ts,
+          target: tgt,
+          status,
           title,
           modules: mods,
-        };
-      })
-      .sort((a: TimelinePoint, b: TimelinePoint) => a.ts - b.ts);
-  }, [(store as any).history, (store as any).scans]);
+        });
+      });
+    }
 
+    // เรียงเวลา
+    return list.sort((a, b) => a.ts - b.ts);
+  }, [store]);
+
+  /** 2) Target dropdown */
   const targets = useMemo(() => {
     const set = new Set<string>();
-    points.forEach((p) => set.add(p.target));
+    events.forEach((e) => set.add(e.target));
     return ["all", ...Array.from(set).sort()];
-  }, [points]);
+  }, [events]);
 
-  // 2) filter ก่อน แล้วค่อย aggregate เป็นรายเดือน
+  /** 3) Apply filter (q + target) */
   const filtered = useMemo(() => {
     const qq = appliedQ.trim().toLowerCase();
-    return points.filter((p) => {
-      const okTarget = appliedTarget === "all" ? true : p.target === appliedTarget;
-      const okQ = !qq ? true : `${p.title} ${p.modules || ""} ${p.target}`.toLowerCase().includes(qq);
+    return events.filter((e) => {
+      const okTarget = appliedTarget === "all" ? true : e.target === appliedTarget;
+      const hay = `${e.title} ${e.modules || ""} ${e.target}`.toLowerCase();
+      const okQ = !qq ? true : hay.includes(qq);
       return okTarget && okQ;
     });
-  }, [points, appliedQ, appliedTarget]);
+  }, [events, appliedQ, appliedTarget]);
 
-  // 3) aggregate เป็นรายเดือน + เติมเดือนที่หายให้กราฟต่อเนื่อง
+  /** 4) Aggregate -> Monthly (12 months full) */
   const monthly: MonthlyRow[] = useMemo(() => {
-    if (!filtered.length) return [];
-
+    
     const map = new Map<string, MonthlyRow>();
-
-    for (const p of filtered) {
-      const key = monthKeyFromTs(p.ts);
-      if (!map.has(key)) {
-        map.set(key, {
-          monthKey: key,
-          monthLabel: monthLabelFromKey(key),
+    
+    filtered.forEach((e) => {
+      const k = monthKeyFromTs(e.ts);
+      if (!map.has(k)) {
+        map.set(k, {
+          monthKey: k,
+          monthLabel: monthLabelFromKey(k),
           done: 0,
           failed: 0,
           running: 0,
@@ -213,55 +285,53 @@ export default function HistoryPage() {
           total: 0,
         });
       }
-      const row = map.get(key)!;
-      row[p.status] += 1;
+      const row = map.get(k)!;
+      row[e.status] += 1;
       row.total += 1;
-    }
+    });
 
-    // sort key
-    const keys = Array.from(map.keys()).sort();
+    
 
-    // เติมเดือนที่ขาด (ให้ line ต่อเนื่อง)
-    const first = keys[0];
-    const last = keys[keys.length - 1];
-
-    const [fy, fm] = first.split("-").map(Number);
-    const [ly, lm] = last.split("-").map(Number);
-
+    // ✅ 12 เดือนย้อนหลัง (รวมเดือนล่าสุด) เสมอ
     const out: MonthlyRow[] = [];
-    let y = fy;
-    let m = fm;
+    const now = new Date();
+    now.setDate(1);
+    now.setHours(0, 0, 0, 0);
 
-    while (y < ly || (y === ly && m <= lm)) {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
       const k = `${y}-${m < 10 ? "0" + m : m}`;
-      const row = map.get(k) || {
-        monthKey: k,
-        monthLabel: monthLabelFromKey(k),
-        done: 0,
-        failed: 0,
-        running: 0,
-        queued: 0,
-        info: 0,
-        total: 0,
-      };
-      out.push(row);
 
-      m += 1;
-      if (m === 13) {
-        m = 1;
-        y += 1;
-      }
+      out.push(
+        map.get(k) || {
+          monthKey: k,
+          monthLabel: monthLabelFromKey(k),
+          done: 0,
+          failed: 0,
+          running: 0,
+          queued: 0,
+          info: 0,
+          total: 0,
+        }
+      );
     }
-
+    
     return out;
   }, [filtered]);
+
+  /** 5) Count items (แสดงจำนวนเหตุการณ์จริงที่ filter แล้ว) */
+  const itemsCount = filtered.length;
 
   return (
     <div className="historyPage">
       <div className="historyHeaderRow">
         <div>
           <div className="historyTitle">History</div>
-          <div className="historySub">Activity timeline from scans, changes, and findings (mock)</div>
+          <div className="historySub">
+            Activity timeline from scans, changes, and findings (mock)
+          </div>
         </div>
 
         <button className="exportBtn" onClick={() => alert("Export (Mock)")}>
@@ -311,7 +381,7 @@ export default function HistoryPage() {
       <div className="timelineCard">
         <div className="timelineCardHeader">
           <div className="timelineCardTitle">Timeline (Monthly)</div>
-          <div className="timelineCount">Showing {filtered.length} items</div>
+          <div className="timelineCount">Showing {itemsCount} items</div>
         </div>
 
         <div className="orgMini">
@@ -320,22 +390,25 @@ export default function HistoryPage() {
         </div>
 
         <div className="chartWrap">
-          <ResponsiveContainer width="100%" height={420}>
-            <LineChart data={monthly} margin={{ top: 18, right: 24, bottom: 18, left: 12 }}>
+          <ResponsiveContainer width="100%" height={380}>
+            <LineChart data={monthly} margin={{ top: 18, right: 22, bottom: 10, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="monthLabel" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-              <Tooltip content={TooltipMonthly as any} />
+              <Tooltip content={<TooltipBox />} />
               <Legend />
 
-              <Line type="monotone" dataKey="done" name="done" stroke={statusColor("done")} strokeWidth={2} dot />
-              <Line type="monotone" dataKey="failed" name="failed" stroke={statusColor("failed")} strokeWidth={2} dot />
-              <Line type="monotone" dataKey="running" name="running" stroke={statusColor("running")} strokeWidth={2} dot />
-              <Line type="monotone" dataKey="queued" name="queued" stroke={statusColor("queued")} strokeWidth={2} dot />
-              <Line type="monotone" dataKey="info" name="info" stroke={statusColor("info")} strokeWidth={2} dot />
 
-              {/* ถ้าต้องการเส้นรวมทั้งหมด เปิดได้ */}
-              {/* <Line type="monotone" dataKey="total" name="total" stroke="#111827" strokeWidth={2} dot={false} /> */}
+
+              
+              {/* <Line type="monotone" dataKey="total" stroke="#2563eb" strokeWidth={1} dot /> */}
+
+              {/* ตัวอย่างการกำหนดสีของแต่ละเส้นในกราฟ */}
+              <Line type="monotone" dataKey="done" stroke={lineColor("done")} strokeWidth={2} dot />
+              <Line type="monotone" dataKey="failed" stroke={lineColor("failed")} strokeWidth={2} dot />
+              <Line type="monotone" dataKey="running" stroke={lineColor("running")} strokeWidth={2} dot />
+              <Line type="monotone" dataKey="queued" stroke={lineColor("queued")} strokeWidth={2} dot />
+              <Line type="monotone" dataKey="info" stroke={lineColor("info")} strokeWidth={2} dot />
             </LineChart>
           </ResponsiveContainer>
         </div>
